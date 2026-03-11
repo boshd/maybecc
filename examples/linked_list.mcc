@@ -1,0 +1,74 @@
+// Intrusive doubly-linked list
+// This is the spec most likely to trigger retries. Doubly-linked list
+// pointer manipulation has 4-6 pointer updates per operation, and getting
+// even one wrong produces a corrupted list that might still pass basic
+// tests but crashes under ASan or fuzz. The intrusive design (node is
+// embedded in user struct) adds an extra layer of pointer offset math.
+
+@target(c99)
+@verify(asan, ubsan, fuzz: 10000)
+
+struct ListNode {
+  prev: *mut ListNode,
+  next: *mut ListNode
+}
+
+struct ListHead {
+  sentinel: ListNode
+}
+
+fn list_init(head: *mut ListHead) -> void
+  @post(head.sentinel.next == &head.sentinel)
+  @post(head.sentinel.prev == &head.sentinel)
+{
+  // Initialize sentinel node to point to itself in both directions
+  // An empty list is a sentinel whose next and prev both point to itself
+}
+
+fn list_is_empty(head: *ListHead) -> bool
+  @post(result == (head.sentinel.next == &head.sentinel))
+{
+  // Return true if sentinel.next points back to sentinel
+}
+
+fn list_push_front(head: *mut ListHead, node: *mut ListNode) -> void
+  @pre(node != null)
+  @post(!list_is_empty(head))
+  @post(head.sentinel.next == node)
+  @post(node.prev == &head.sentinel)
+{
+  // Insert node between sentinel and sentinel.next
+  // Update 4 pointers: node.next, node.prev, old_first.prev, sentinel.next
+}
+
+fn list_push_back(head: *mut ListHead, node: *mut ListNode) -> void
+  @pre(node != null)
+  @post(!list_is_empty(head))
+  @post(head.sentinel.prev == node)
+  @post(node.next == &head.sentinel)
+{
+  // Insert node between sentinel.prev and sentinel
+  // Update 4 pointers: node.prev, node.next, old_last.next, sentinel.prev
+}
+
+fn list_remove(node: *mut ListNode) -> void
+  @pre(node != null)
+  @pre(node.prev != null)
+  @pre(node.next != null)
+{
+  // Unlink node from its neighbors
+  // node.prev.next = node.next
+  // node.next.prev = node.prev
+  // Set node.next and node.prev to NULL (poison removed node)
+}
+
+fn list_pop_front(head: *mut ListHead) -> *mut ListNode
+  @pre(!list_is_empty(head))
+  @post(result != null)
+  @post(result.next == null)
+  @post(result.prev == null)
+{
+  // Save sentinel.next as the node to return
+  // Call list_remove on that node
+  // Return it
+}

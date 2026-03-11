@@ -1,0 +1,50 @@
+// Packet parser — the original motivating example
+// This should stress pointer arithmetic, bounds checking, and endianness
+
+@target(c99)
+@verify(asan, ubsan, fuzz: 10000)
+
+struct Packet {
+  header_version: u8,
+  header_flags: u8,
+  header_reserved: u16,
+  payload_len: u32,
+  header_checksum: u32,
+  payload: bytes[..],
+  payload_checksum: u32
+}
+
+enum ParseError {
+  TooShort,
+  InvalidVersion,
+  ChecksumMismatch,
+  PayloadLengthMismatch,
+  BufferOverflow
+}
+
+fn parse_packet(raw: bytes[..]) -> Result<Packet, ParseError>
+  @pre(raw.len >= 1)
+  @pre(raw.len <= 65535)
+  @post(result.ok => result.value.payload_len == result.value.payload.len)
+  @post(result.err => no_allocation_leaked)
+{
+  // If raw is shorter than 12 bytes (header), return TooShort
+  // Byte 0 is version, must be 1 or 2, otherwise return InvalidVersion
+  // Byte 1 is flags
+  // Bytes 2-3 are reserved (big-endian u16, ignored)
+  // Bytes 4-7 are payload length as big-endian u32
+  // Bytes 8-11 are header checksum as big-endian u32
+  // Validate header checksum: sum of bytes 0-7 as u32 must equal header checksum
+  // If raw.len < 12 + payload_length + 4, return PayloadLengthMismatch
+  // Allocate and copy payload_length bytes starting at offset 12
+  // Last 4 bytes after payload are payload checksum as big-endian u32
+  // Validate payload checksum: sum of all payload bytes as u32
+  // If checksum doesn't match, free payload and return ChecksumMismatch
+  // Return the parsed Packet
+}
+
+fn free_packet(pkt: *mut Packet) -> void
+{
+  // Free the payload buffer inside the packet
+  // Zero out the struct fields
+}

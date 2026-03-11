@@ -1,0 +1,27 @@
+@target(c99)
+
+fn add(a: i32, b: i32) -> i32
+  @post(result == a + b)
+{
+  // Return the sum of a and b
+}
+
+fn subtract(a: i32, b: i32) -> i32
+  @post(result == a - b)
+{
+  // Return the difference of a minus b
+}
+
+fn multiply(a: i32, b: i32) -> i32
+  @post(result == a * b)
+{
+  // Return the product of a and b
+}
+
+fn factorial(n: u32) -> u32
+  @pre(n <= 12)
+{
+  // Compute factorial of n using iteration
+  // factorial(0) = 1
+  // factorial(n) = n * (n-1) * ... * 1
+}

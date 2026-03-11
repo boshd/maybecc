@@ -1,0 +1,138 @@
+// maybecc .mcc spec language grammar (Lark EBNF, LALR)
+
+start: item*
+
+?item: top_directive
+     | struct_def
+     | enum_def
+     | func_def
+
+
+// === Top-level directives ===
+
+top_directive: "@" NAME "(" directive_args ")"
+
+directive_args: directive_arg ("," directive_arg)*
+
+?directive_arg: NAME ":" atom  -> keyed_arg
+              | atom           -> positional_arg
+
+?atom: NUMBER  -> atom_number
+     | NAME    -> atom_name
+
+
+// === Struct definitions ===
+
+struct_def: "struct" NAME "{" (field ","?)+ "}"
+
+field: NAME ":" type_expr
+
+
+// === Enum definitions (plain — no associated data in v0.1) ===
+
+enum_def: "enum" NAME "{" enum_body "}"
+
+enum_body: NAME ("," NAME)*
+
+
+// === Function definitions ===
+
+func_def: "fn" NAME "(" param_list? ")" return_type? annotation* BODY_SENTINEL
+
+return_type: ARROW type_expr
+
+ARROW: "->"
+
+param_list: param ("," param)*
+
+param: NAME ":" type_expr
+
+?annotation: "@" "pre" "(" expr ")"              -> precondition
+           | "@" "post" "(" expr ")"             -> postcondition
+           | COMPLEXITY_SENTINEL                  -> complexity
+           | "@" NAME "(" directive_args ")"      -> param_annotation
+           | "@" NAME                             -> flag_annotation
+
+
+// === Type expressions ===
+
+?type_expr: NAME "[" NUMBER "]"                      -> array_type
+          | NAME "[" DOTDOT "]"                      -> slice_type
+          | "Result" "<" type_expr "," type_expr ">" -> result_type
+          | "Option" "<" type_expr ">"               -> option_type
+          | "*" "mut" type_expr                      -> mut_ptr_type
+          | "*" type_expr                            -> ptr_type
+          | NAME                                     -> simple_type
+
+
+// === Contract expressions ===
+//
+// Precedence (low to high):
+//   implication (=>, right-assoc)
+//   or (||)
+//   and (&&)
+//   comparison (==, !=, >=, <=, >, <)
+//   addition (+, -)
+//   multiplication (*, /, %)
+//   unary (!, -)
+//   postfix (.field, (args), [idx])
+//   primary (ident, number, bool, parens)
+
+?expr: or_expr "=>" expr  -> implication
+     | or_expr
+
+?or_expr: or_expr "||" and_expr  -> or_op
+        | and_expr
+
+?and_expr: and_expr "&&" comp_expr  -> and_op
+         | comp_expr
+
+?comp_expr: add_expr ">=" add_expr  -> gte
+          | add_expr "<=" add_expr  -> lte
+          | add_expr "==" add_expr  -> eq
+          | add_expr "!=" add_expr  -> neq
+          | add_expr ">" add_expr   -> gt
+          | add_expr "<" add_expr   -> lt
+          | add_expr
+
+?add_expr: add_expr "+" mul_expr  -> add
+         | add_expr "-" mul_expr  -> sub
+         | mul_expr
+
+?mul_expr: mul_expr "*" unary_expr  -> mul
+         | mul_expr "/" unary_expr  -> div
+         | mul_expr "%" unary_expr  -> mod
+         | unary_expr
+
+?unary_expr: "!" unary_expr  -> not_op
+           | "-" unary_expr  -> neg_op
+           | "&" unary_expr  -> addr_op
+           | postfix_expr
+
+?postfix_expr: postfix_expr "." NAME            -> field_access
+             | postfix_expr "(" arg_list? ")"   -> call_expr
+             | postfix_expr "[" expr "]"        -> index_expr
+             | atom_expr
+
+?atom_expr: "true"       -> true_lit
+          | "false"      -> false_lit
+          | "null"       -> null_lit
+          | NUMBER        -> number_lit
+          | NAME          -> ident
+          | "(" expr ")"
+
+arg_list: expr ("," expr)*
+
+
+// === Terminals ===
+
+DOTDOT: ".."
+
+BODY_SENTINEL.2: /__BODY_\d+__/
+COMPLEXITY_SENTINEL.2: /__CMPLX_\d+__/
+
+NAME: /[a-zA-Z_][a-zA-Z0-9_]*/
+NUMBER: /[0-9]+/
+
+%ignore /\s+/
+%ignore /\/\/[^\n]*/

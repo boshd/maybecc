@@ -1,0 +1,57 @@
+// UTF-8 validator and decoder
+// Bit manipulation, multi-byte state tracking, and strict RFC compliance
+// create a combinatorial explosion that LLMs rarely get right on first try.
+// The edge cases (overlong encodings, surrogate halves, > U+10FFFF) are
+// the kind of thing that even experienced C programmers get wrong.
+
+@target(c99)
+@verify(asan, ubsan, fuzz: 20000)
+
+struct CodePoint {
+  value: u32,
+  bytes_consumed: u8
+}
+
+enum Utf8Error {
+  UnexpectedContinuation,
+  TruncatedSequence,
+  OverlongEncoding,
+  SurrogateHalf,
+  OutOfRange,
+  InvalidByte
+}
+
+fn utf8_decode_one(input: bytes[..]) -> Result<CodePoint, Utf8Error>
+  @pre(input.len >= 1)
+  @pre(input.len <= 4)
+  @post(result.ok => result.value.value <= 1114111)
+  @post(result.ok => result.value.bytes_consumed >= 1)
+  @post(result.ok => result.value.bytes_consumed <= 4)
+  @post(result.ok => result.value.bytes_consumed <= input.len)
+  @post(result.ok => result.value.value < 55296 || result.value.value > 57343)
+{
+  // Single byte: 0xxxxxxx -> value is byte itself, consumed = 1
+  // Two bytes: 110xxxxx 10xxxxxx -> consumed = 2
+  // Three bytes: 1110xxxx 10xxxxxx 10xxxxxx -> consumed = 3
+  // Four bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx -> consumed = 4
+  //
+  // Reject if first byte is 10xxxxxx (unexpected continuation)
+  // Reject if first byte is 11111xxx (invalid lead byte)
+  // Reject if not enough continuation bytes follow
+  // Reject each continuation byte that doesn't match 10xxxxxx pattern
+  // Reject overlong encodings:
+  //   2-byte must encode >= U+0080
+  //   3-byte must encode >= U+0800
+  //   4-byte must encode >= U+10000
+  // Reject surrogate halves: U+D800 through U+DFFF
+  // Reject values > U+10FFFF
+}
+
+fn utf8_validate(input: bytes[..]) -> bool
+  @post(result == true => input is valid UTF-8)
+{
+  // Walk through input calling utf8_decode_one repeatedly
+  // Return false if any call returns an error
+  // Return false if bytes_consumed don't sum to input.len exactly
+  // Return true if entire input is consumed without error
+}

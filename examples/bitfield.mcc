@@ -1,0 +1,77 @@
+// Bitfield packer / unpacker
+// Pack and unpack arbitrary-width fields into a byte buffer.
+// This tests bit shifting, masking, cross-byte-boundary extraction,
+// and endianness handling. LLMs almost always get the boundary
+// cases wrong (field spanning bytes 2-3, partial byte at end).
+
+@target(c99)
+@verify(asan, ubsan, fuzz: 15000)
+
+struct BitWriter {
+  buf: *mut u8,
+  capacity: usize,
+  bit_offset: usize
+}
+
+struct BitReader {
+  buf: *u8,
+  length: usize,
+  bit_offset: usize
+}
+
+fn bitwriter_create(buf: *mut u8, capacity: usize) -> BitWriter
+  @pre(buf != null)
+  @pre(capacity >= 1)
+  @post(result.bit_offset == 0)
+  @post(result.capacity == capacity)
+{
+  // Initialize writer with buffer, capacity, and bit_offset = 0
+  // Zero out the buffer
+}
+
+fn bitwriter_write(writer: *mut BitWriter, value: u32, bits: u8) -> bool
+  @pre(bits >= 1)
+  @pre(bits <= 32)
+  @pre(value < (1 << bits) || bits == 32)
+  @post(result == true => writer.bit_offset == old_bit_offset + bits)
+  @post(result == false => writer.bit_offset == old_bit_offset)
+{
+  // Check if there's enough room: (bit_offset + bits + 7) / 8 <= capacity
+  // Write 'bits' least-significant bits of 'value' into buffer
+  // starting at the current bit_offset (MSB first / big-endian bit order)
+  //
+  // For each bit, from the most significant of the 'bits' count down:
+  //   byte_index = bit_offset / 8
+  //   bit_index_in_byte = 7 - (bit_offset % 8)
+  //   set or clear that bit in buf[byte_index]
+  //   increment bit_offset
+  //
+  // Return true on success, false if would overflow buffer
+}
+
+fn bitreader_create(buf: *u8, length: usize) -> BitReader
+  @pre(buf != null)
+  @pre(length >= 1)
+  @post(result.bit_offset == 0)
+  @post(result.length == length)
+{
+  // Initialize reader with buffer, length, bit_offset = 0
+}
+
+fn bitreader_read(reader: *mut BitReader, bits: u8) -> Option<u32>
+  @pre(bits >= 1)
+  @pre(bits <= 32)
+  @post(result.some => reader.bit_offset == old_bit_offset + bits)
+  @post(result.none => reader.bit_offset == old_bit_offset)
+{
+  // Check if enough bits remain: (bit_offset + bits + 7) / 8 <= length
+  // Read 'bits' bits from buffer starting at bit_offset (MSB first)
+  //
+  // For each bit from most significant to least:
+  //   byte_index = bit_offset / 8
+  //   bit_index_in_byte = 7 - (bit_offset % 8)
+  //   extract that bit and shift into result
+  //   increment bit_offset
+  //
+  // Return Some(value), or None if would read past end
+}

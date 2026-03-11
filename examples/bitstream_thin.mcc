@@ -1,0 +1,34 @@
+// Bitfield packer — thin spec
+// Write N bits, read N bits, they must match.
+// One line of intent. The contracts do the talking.
+
+@target(c99)
+@verify(asan, ubsan, fuzz: 15000)
+
+struct BitStream {
+  buf: *mut u8,
+  capacity: usize,
+  bit_pos: usize
+}
+
+fn bs_create(buf: *mut u8, capacity: usize) -> BitStream
+  @pre(buf != null)
+  @pre(capacity >= 1)
+  @post(result.bit_pos == 0)
+{
+  // Initialize a bit stream over the given buffer.
+}
+
+fn bs_write(stream: *mut BitStream, value: u32, bits: u8) -> bool
+  @pre(bits >= 1)
+  @pre(bits <= 32)
+{
+  // Write the lowest 'bits' bits of value into the stream. MSB first.
+}
+
+fn bs_read(stream: *mut BitStream, bits: u8) -> Option<u32>
+  @pre(bits >= 1)
+  @pre(bits <= 32)
+{
+  // Read 'bits' bits from the stream. MSB first.
+}

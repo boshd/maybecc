@@ -1,0 +1,56 @@
+@target(c99)
+@verify(asan, ubsan)
+
+struct RingBuffer {
+  data: *mut u8
+  capacity: usize
+  head: usize
+  tail: usize
+  count: usize
+}
+
+fn ring_buffer_create(capacity: usize) -> Option<RingBuffer>
+  @pre(capacity > 0)
+  @pre(capacity <= 1048576)
+  @post(result.some => result.value.capacity == capacity)
+  @post(result.some => result.value.count == 0)
+  @no_undefined_behavior
+{
+  // Allocate a buffer of the given capacity
+  // Return None if allocation fails
+  // Initialize head, tail, count to 0
+}
+
+fn ring_buffer_push(buf: *mut RingBuffer, byte: u8) -> bool
+  @pre(buf != null)
+  @post(result == true => buf.count <= buf.capacity)
+  @post(result == false => buf.count == buf.capacity)
+  @no_undefined_behavior
+{
+  // If buffer is full, return false
+  // Write byte at tail position
+  // Advance tail with wraparound: tail = (tail + 1) % capacity
+  // Increment count
+  // Return true
+}
+
+fn ring_buffer_pop(buf: *mut RingBuffer) -> Option<u8>
+  @pre(buf != null)
+  @post(result.none => buf.count == 0)
+  @no_undefined_behavior
+{
+  // If buffer is empty, return None
+  // Read byte at head position
+  // Advance head with wraparound: head = (head + 1) % capacity
+  // Decrement count
+  // Return the byte
+}
+
+fn ring_buffer_destroy(buf: *mut RingBuffer) -> void
+  @pre(buf != null)
+  @post(no_allocation_leaked)
+  @no_undefined_behavior
+{
+  // Free the data buffer
+  // Zero out all fields
+}

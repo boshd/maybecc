@@ -1,0 +1,50 @@
+// Arena (bump) allocator
+// Custom memory management is where LLMs consistently struggle.
+// Alignment arithmetic, pointer casting, and overflow checks are
+// the exact failure modes that make the retry loop earn its keep.
+
+@target(c99)
+@verify(asan, ubsan, fuzz: 5000)
+
+struct Arena {
+  base: *mut u8,
+  size: usize,
+  offset: usize
+}
+
+fn arena_create(size: usize) -> Option<Arena>
+  @pre(size >= 64)
+  @pre(size <= 1048576)
+  @post(result.some => result.value.offset == 0)
+  @post(result.some => result.value.size == size)
+  @post(result.none => no_allocation_leaked)
+{
+  // Allocate a contiguous block of 'size' bytes
+  // Initialize offset to 0
+  // Return None if malloc fails
+}
+
+fn arena_alloc(arena: *mut Arena, size: usize, align: usize) -> *mut u8
+  @pre(align == 1 || align == 2 || align == 4 || align == 8 || align == 16)
+  @pre(size >= 1)
+  @post(result != null => result % align == 0)
+  @post(result != null => arena.offset <= arena.size)
+{
+  // Round up current offset to the next multiple of 'align'
+  // alignment formula: (offset + align - 1) & ~(align - 1)
+  // If aligned_offset + size > arena.size, return NULL
+  // Otherwise, update arena.offset to aligned_offset + size
+  // Return pointer to base + aligned_offset
+}
+
+fn arena_reset(arena: *mut Arena) -> void
+  @post(arena.offset == 0)
+{
+  // Reset offset to 0, keeping the allocated block
+}
+
+fn arena_destroy(arena: *mut Arena) -> void
+{
+  // Free the base allocation
+  // Zero out the struct
+}
