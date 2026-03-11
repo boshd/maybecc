@@ -21,7 +21,7 @@ def main():
 @click.option("--run", "run_after", is_flag=True, help="Run the binary after compilation")
 @click.option("--verbose", is_flag=True, help="Verbose output")
 def compile(spec_file, output, max_retries, model, run_after, verbose):
-    """Compile a .mcc spec file to C via LLM, then build it."""
+    """Compile a .mcc spec file to verified C code."""
     from maybecc.orchestrator import run, run_binary
 
     result = run(
@@ -38,11 +38,17 @@ def compile(spec_file, output, max_retries, model, run_after, verbose):
             f"\nFailed after {result.attempts} attempt(s).", err=True
         )
         for err in result.errors:
-            click.echo(f"  {err}", err=True)
+            for line in err.splitlines()[:5]:
+                click.echo(f"  {line}", err=True)
         sys.exit(1)
 
+    if result.verification_layers_that_caught_bugs:
+        layers = ", ".join(result.verification_layers_that_caught_bugs)
+        click.echo(f"Verification layers that caught bugs: {layers}")
+
     click.echo(
-        f"\nDone in {result.attempts} attempt(s): {result.binary_path}"
+        f"Done in {result.attempts} attempt(s), "
+        f"{result.wall_time_seconds:.1f}s: {result.binary_path}"
     )
 
     if run_after and result.binary_path:
@@ -74,4 +80,6 @@ def parse(spec_file):
     click.echo(f"Functions: {len(module.functions)}")
     for fn in module.functions:
         ann_types = [type(a).__name__ for a in fn.annotations]
-        click.echo(f"  {fn.name}: {len(fn.params)} params, {', '.join(ann_types)}")
+        click.echo(
+            f"  {fn.name}: {len(fn.params)} params, {', '.join(ann_types)}"
+        )
